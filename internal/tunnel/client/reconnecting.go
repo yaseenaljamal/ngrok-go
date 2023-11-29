@@ -100,11 +100,12 @@ type reconnectingSession struct {
 	clientID     string
 	cb           ReconnectCallback
 	swapper      *swapRaw
+	swapper2     *swapRaw
 	*session
 }
 
-type RawSessionDialer func() (RawSession, error)
-type ReconnectCallback func(s Session) error
+type RawSessionDialer func(two bool) (RawSession, error)
+type ReconnectCallback func(s Session, two bool) error
 
 // Establish a Session that reconnects across temporary network failures. The
 // returned Session object uses the given dialer to reconnect whenever Accept
@@ -124,25 +125,39 @@ type ReconnectCallback func(s Session) error
 // ReconnectingSession will hang.
 func NewReconnectingSession(logger log.Logger, dialer RawSessionDialer, stateChanges chan<- error, cb ReconnectCallback) Session {
 	swapper := new(swapRaw)
+	swapper2 := new(swapRaw)
 	s := &reconnectingSession{
 		dialer:       dialer,
 		stateChanges: stateChanges,
 		cb:           cb,
 		swapper:      swapper,
+		swapper2:     swapper2,
 		session: &session{
-			tunnels: make(map[string]*tunnel),
-			raw:     swapper,
-			Logger:  newLogger(logger),
+			tunnels:  make(map[string]*tunnel),
+			tunnels2: make(map[string]*tunnel),
+			raw:      swapper,
+			raw2:     swapper2,
+			Logger:   newLogger(logger),
 		},
 	}
 
 	// setup an initial connection
 	go func() {
-		err := s.connect(nil)
+		err := s.connect(nil, false)
 		if err != nil {
 			return
 		}
-		s.receive()
+		s.receive(false)
+	}()
+
+	// set up muleg connection
+	go func() {
+		time.Sleep(5000 * time.Millisecond)
+		err := s.connect(nil, true)
+		if err != nil {
+			return
+		}
+		s.receive(true)
 	}()
 
 	return s
@@ -153,11 +168,15 @@ func (s *reconnectingSession) Close() error {
 	return s.session.Close()
 }
 
-func (s *reconnectingSession) receive() {
+func (s *reconnectingSession) receive(two bool) {
 	// when we shut down, close all of the open tunnels
 	defer func() {
 		s.RLock()
-		for _, t := range s.tunnels {
+		var tunnels = s.tunnels
+		if two {
+			tunnels = s.tunnels2
+		}
+		for _, t := range tunnels {
 			go t.Close()
 		}
 		s.RUnlock()
@@ -165,24 +184,35 @@ func (s *reconnectingSession) receive() {
 
 	for {
 		// accept the next proxy connection
-		proxy, err := s.raw.Accept()
+		raw := s.raw
+		if two {
+			raw = s.raw2
+		}
+		proxy, err := raw.Accept()
 		if err == nil {
 			go s.handleProxy(proxy)
 			continue
 		}
 
 		// we disconnected, reconnect
-		err = s.connect(err)
+		err = s.connect(err, two)
 		if err != nil {
-			s.Info("accept failed", "err", err)
+			s.Info("accept failed", "err", err, "two", two)
 			// permanent failure
 			return
 		}
 	}
 }
 
-func (s *reconnectingSession) Auth(extra proto.AuthExtra) (resp proto.AuthResp, err error) {
-	resp, err = s.raw.Auth(s.clientID, extra)
+func (s *reconnectingSession) Auth(extra proto.AuthExtra, two bool) (resp proto.AuthResp, err error) {
+	raw := s.raw
+	extra.Metadata = "muleg:leg0"
+	if two {
+		raw = s.raw2
+		extra.Metadata = "muleg:leg1"
+		extra.LegNumber = 1
+	}
+	resp, err = raw.Auth(s.clientID, extra)
 	if err != nil {
 		return
 	}
@@ -194,7 +224,7 @@ func (s *reconnectingSession) Auth(extra proto.AuthExtra) (resp proto.AuthResp, 
 	return
 }
 
-func (s *reconnectingSession) connect(acceptErr error) error {
+func (s *reconnectingSession) connect(acceptErr error, two bool) error {
 	boff := &backoff.Backoff{
 		Min:    500 * time.Millisecond,
 		Max:    30 * time.Second,
@@ -202,8 +232,8 @@ func (s *reconnectingSession) connect(acceptErr error) error {
 		Jitter: false,
 	}
 
-	failTemp := func(err error, raw RawSession) {
-		s.Error("failed to reconnect session", "err", err)
+	failTemp := func(err error, raw RawSession, two bool) {
+		s.Error("failed to reconnect session", "err", err, "two", two)
 		s.stateChanges <- err
 
 		// if the retry loop failed after the session was opened, then make sure to close it
@@ -213,7 +243,8 @@ func (s *reconnectingSession) connect(acceptErr error) error {
 
 		// session failed, wait before reconnecting
 		wait := boff.Duration()
-		s.Debug("sleep before reconnect", "secs", int(wait.Seconds()))
+
+		s.Debug("sleep before reconnect", "secs", int(wait.Seconds()), "two", two)
 		time.Sleep(wait)
 	}
 
@@ -223,12 +254,13 @@ func (s *reconnectingSession) connect(acceptErr error) error {
 		return err
 	}
 
-	restartBinds := func(raw RawSession) (err error) {
+	restartBinds := func(raw RawSession, two bool) (err error) {
 		s.Lock()
 		defer s.Unlock()
 
 		// reconnected tunnels, which may have different IDs
 		newTunnels := make(map[string]*tunnel, len(s.tunnels))
+		// TODO: might have to loop on tunnels2 if two, except if two is empty and one isn't?
 		for oldID, t := range s.tunnels {
 			// set the returned token for reconnection
 			tCfg := t.RemoteBindConfig()
@@ -263,13 +295,17 @@ func (s *reconnectingSession) connect(acceptErr error) error {
 				return errors.New(respErr)
 			}
 		}
-		s.tunnels = newTunnels
+		if two {
+			s.tunnels2 = newTunnels
+		} else {
+			s.tunnels = newTunnels
+		}
 		return nil
 	}
 
 	if acceptErr != nil {
 		if atomic.LoadInt32(&s.closed) == 0 {
-			s.Error("session closed, starting reconnect loop", "err", acceptErr)
+			s.Error("session closed, starting reconnect loop", "err", acceptErr, "two", two)
 			s.stateChanges <- acceptErr
 		}
 	}
@@ -284,32 +320,33 @@ func (s *reconnectingSession) connect(acceptErr error) error {
 		}
 
 		// dial the tunnel server
-		raw, err := s.dialer()
+		raw, err := s.dialer(two)
 		if err != nil {
-			failTemp(err, raw)
+			failTemp(err, raw, two)
 			continue
 		}
 
 		// successfully reconnected
-		s.swapper.set(raw)
+		if two {
+			s.swapper2.set(raw)
+		} else {
+			s.swapper.set(raw)
+		}
 
 		// callback for authentication
-		if err := s.cb(s); err != nil {
-			failTemp(err, raw)
+		if err := s.cb(s, two); err != nil {
+			failTemp(err, raw, two)
 			continue
 		}
 
 		// re-establish binds
-		err = restartBinds(raw)
+		err = restartBinds(raw, two)
 		if err != nil {
-			failTemp(err, raw)
+			failTemp(err, raw, two)
 			continue
 		}
 
-		// reset wait
-		boff.Reset()
-
-		s.Info("client session established")
+		s.Info("client session established", "two", two)
 		s.stateChanges <- nil
 		return nil
 	}

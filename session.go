@@ -508,15 +508,6 @@ func Connect(ctx context.Context, opts ...ConnectOption) (Session, error) {
 		cfg.ServerAddr = defaultServer
 	}
 
-	tlsConfig := &tls.Config{
-		RootCAs:    cfg.CAPool,
-		ServerName: strings.Split(cfg.ServerAddr, ":")[0],
-		MinVersion: tls.VersionTLS12,
-	}
-	if cfg.TLSConfigCustomizer != nil {
-		cfg.TLSConfigCustomizer(tlsConfig)
-	}
-
 	var dialer Dialer
 
 	if cfg.Dialer != nil {
@@ -555,7 +546,22 @@ func Connect(ctx context.Context, opts ...ConnectOption) (Session, error) {
 		updateHandler:  cfg.UpdateHandler,
 	}
 
-	rawDialer := func() (tunnel_client.RawSession, error) {
+	rawDialer := func(two bool) (tunnel_client.RawSession, error) {
+		if two {
+			cfg.ServerAddr = "connect.l2.ngrok-agent.com.lan:443"
+		} else {
+			cfg.ServerAddr = "connect.us.ngrok-agent.com.lan:443"
+		}
+		tlsConfig := &tls.Config{
+			RootCAs:    cfg.CAPool,
+			ServerName: strings.Split(cfg.ServerAddr, ":")[0],
+			MinVersion: tls.VersionTLS12,
+		}
+		if cfg.TLSConfigCustomizer != nil {
+			cfg.TLSConfigCustomizer(tlsConfig)
+		}
+		tlsConfig.ServerName = strings.Split(cfg.ServerAddr, ":")[0]
+
 		conn, err := dialer.DialContext(ctx, "tcp", cfg.ServerAddr)
 		if err != nil {
 			return nil, errSessionDial{cfg.ServerAddr, err}
@@ -564,7 +570,7 @@ func Connect(ctx context.Context, opts ...ConnectOption) (Session, error) {
 		conn = tls.Client(conn, tlsConfig)
 
 		sess := muxado.Client(conn, &muxado.Config{})
-		return tunnel_client.NewRawSession(logger, sess, heartbeatConfig, callbackHandler), nil
+		return tunnel_client.NewRawSession(logger, sess, heartbeatConfig, callbackHandler, two), nil
 	}
 
 	empty := ""
@@ -613,8 +619,8 @@ func Connect(ctx context.Context, opts ...ConnectOption) (Session, error) {
 		UpdateUnsupportedError:  cfg.remoteUpdateErr,
 	}
 
-	reconnect := func(sess tunnel_client.Session) error {
-		resp, err := sess.Auth(auth)
+	reconnect := func(sess tunnel_client.Session, two bool) error {
+		resp, err := sess.Auth(auth, two)
 		if err != nil {
 			remote := false
 			if resp.Error != "" {

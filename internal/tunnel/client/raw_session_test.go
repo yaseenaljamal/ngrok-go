@@ -18,7 +18,7 @@ func (d *dummyStream) Write(bs []byte) (int, error) { return 0, nil }
 func (d *dummyStream) Close() error                 { return nil }
 
 func TestRawSessionDoubleClose(t *testing.T) {
-	r := NewRawSession(log15.New(), muxado.Client(&dummyStream{}, nil), nil, nil)
+	r := NewRawSession(log15.New(), muxado.Client(&dummyStream{}, nil), nil, nil, false)
 
 	// Verify that closing the session twice doesn't cause a panic
 	r.Close()
@@ -26,7 +26,7 @@ func TestRawSessionDoubleClose(t *testing.T) {
 }
 
 func TestHeartbeatTimeout(t *testing.T) {
-	r := NewRawSession(log15.New(), muxado.Client(&dummyStream{}, nil), nil, nil)
+	r := NewRawSession(log15.New(), muxado.Client(&dummyStream{}, nil), nil, nil, false)
 	// Make sure we don't deadlock
 	r.(*rawSession).onHeartbeat(1, true)
 }
@@ -46,7 +46,7 @@ testloop:
 		}
 
 		ctx, cancel := context.WithCancel(ctx)
-		r := NewRawSession(log15.New(), muxado.Client(&dummyStream{}, nil), nil, nil)
+		r := NewRawSession(log15.New(), muxado.Client(&dummyStream{}, nil), nil, nil, false)
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
