@@ -53,16 +53,17 @@ type rawSession struct {
 	closed     bool
 	closedLock sync.RWMutex
 	log.Logger
+	two bool
 }
 
 // Creates a new client tunnel session with the given id
 // running over the given muxado session.
-func NewRawSession(logger log.Logger, mux muxado.Session, heartbeatConfig *muxado.HeartbeatConfig, handler SessionHandler) RawSession {
-	return newRawSession(mux, newLogger(logger), heartbeatConfig, handler)
+func NewRawSession(logger log.Logger, mux muxado.Session, heartbeatConfig *muxado.HeartbeatConfig, handler SessionHandler, two bool) RawSession {
+	return newRawSession(mux, newLogger(logger), heartbeatConfig, handler, two)
 }
 
-func newRawSession(mux muxado.Session, logger log.Logger, heartbeatConfig *muxado.HeartbeatConfig, handler SessionHandler) RawSession {
-	s := &rawSession{Logger: logger, handler: handler, latency: make(chan time.Duration)}
+func newRawSession(mux muxado.Session, logger log.Logger, heartbeatConfig *muxado.HeartbeatConfig, handler SessionHandler, two bool) RawSession {
+	s := &rawSession{Logger: logger, handler: handler, latency: make(chan time.Duration), two: two}
 	typed := muxado.NewTypedStreamSession(mux)
 	heart := muxado.NewHeartbeat(typed, s.onHeartbeat, heartbeatConfig)
 	s.mux = heart
@@ -164,6 +165,7 @@ func (s *rawSession) Accept() (netx.LoggedConn, error) {
 		}
 
 		reqType := proto.ReqType(raw.StreamType())
+		s.Debug("tunnel Accept", "reqType", reqType, "two", s.two)
 		deserialize := func(v any) (ok bool) {
 			if err := json.NewDecoder(raw).Decode(v); err != nil {
 				s.Error("failed to deserialize", "type", reflect.TypeOf(v), "err", err)
