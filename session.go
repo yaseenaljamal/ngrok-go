@@ -548,9 +548,11 @@ func Connect(ctx context.Context, opts ...ConnectOption) (Session, error) {
 
 	rawDialer := func(two bool) (tunnel_client.RawSession, error) {
 		if two {
-			cfg.ServerAddr = "connect.l2.ngrok-agent.com.lan:443"
+			// cfg.ServerAddr = "connect.l2.ngrok-agent.com.lan:443"
+			cfg.ServerAddr = "connect.us-cal-1.ngrok-agent.com:443"
 		} else {
-			cfg.ServerAddr = "connect.us.ngrok-agent.com.lan:443"
+			// cfg.ServerAddr = "connect.us.ngrok-agent.com.lan:443"
+			cfg.ServerAddr = "connect.us.ngrok-agent.com:443"
 		}
 		tlsConfig := &tls.Config{
 			RootCAs:    cfg.CAPool,
