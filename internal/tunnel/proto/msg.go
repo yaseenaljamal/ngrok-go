@@ -289,6 +289,7 @@ type HTTPEndpoint struct {
 	HostHeaderRewrite bool   // true if the request's host header is being rewritten
 	LocalURLScheme    string // scheme of the local forward
 	ProxyProto
+	Bindings []string
 
 	// middleware
 	Compression           *pb.MiddlewareConfiguration_Compression
@@ -309,6 +310,7 @@ type HTTPEndpoint struct {
 type TCPEndpoint struct {
 	Addr string
 	ProxyProto
+	Bindings []string
 
 	// middleware
 	IPRestriction *pb.MiddlewareConfiguration_IPRestriction
@@ -321,6 +323,7 @@ type TLSEndpoint struct {
 	Subdomain string
 	ProxyProto
 	MutualTLSAtAgent bool
+	Bindings         []string
 
 	// edge termination options
 	MutualTLSAtEdge *pb.MiddlewareConfiguration_MutualTLS

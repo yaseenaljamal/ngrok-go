@@ -10,8 +10,7 @@ func WithBindings(requestedBindings ...string) interface {
 	TLSEndpointOption
 	TCPEndpointOption
 } {
-	b := (*bindings)(&requestedBindings)
-	return b
+	return (*bindings)(&requestedBindings)
 }
 
 func (b *bindings) ApplyTLS(opts *tlsOptions) {
