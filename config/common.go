@@ -21,7 +21,7 @@ type commonOpts struct {
 	// connections to the edge.
 	Policy *policy
 
-	Bindings *bindings
+	Bindings bindings
 }
 
 type CommonOptionsFunc func(cfg *commonOpts)

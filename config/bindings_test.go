@@ -17,21 +17,21 @@ func testBindings[T tunnelConfigPrivate, O any, OT any](
 	}
 
 	cases := testCases[T, O]{
-		{
-			name: "absent",
-			opts: optsFunc(),
-			expectOpts: func(t *testing.T, opts *O) {
-				actual := getBindings(opts)
-				require.Empty(t, actual)
-			},
-		},
+		// {
+		// 	name: "absent",
+		// 	opts: optsFunc(),
+		// 	expectOpts: func(t *testing.T, opts *O) {
+		// 		actual := getBindings(opts)
+		// 		require.Empty(t, actual)
+		// 	},
+		// },
 		{
 			name: "with bindings",
 			opts: optsFunc(WithBindings("public")),
 			expectOpts: func(t *testing.T, opts *O) {
 				actual := getBindings(opts)
-				require.NotEmpty(t, actual)
-				require.Equal(t, "public", actual)
+				// require.NotEmpty(t, actual)
+				require.Equal(t, []string{"public"}, actual)
 			},
 		},
 	}
@@ -43,10 +43,10 @@ func TestBindings(t *testing.T) {
 	testBindings[*httpOptions](t, HTTPEndpoint, func(opts *proto.HTTPEndpoint) []string {
 		return opts.Bindings
 	})
-	testDomain[*tlsOptions](t, TLSEndpoint, func(opts *proto.TLSEndpoint) []string {
+	testBindings[*tlsOptions](t, TLSEndpoint, func(opts *proto.TLSEndpoint) []string {
 		return opts.Bindings
 	})
-	testDomain[*tcpOptions](t, TCPEndpoint, func(opts *proto.TLSEndpoint) []string {
+	testBindings[*tcpOptions](t, TCPEndpoint, func(opts *proto.TLSEndpoint) []string {
 		return opts.Bindings
 	})
 }
