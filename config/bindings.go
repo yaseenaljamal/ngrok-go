@@ -4,7 +4,7 @@ type bindings []string
 
 // WithBinding configures ingress for an endpoint
 //
-// The requestedBindings argument is a string of the type of ingress for the endpoint
+// The requestedBindings argument specifies the type of ingress for the endpoint.
 func WithBindings(requestedBindings ...string) interface {
 	HTTPEndpointOption
 	TLSEndpointOption
