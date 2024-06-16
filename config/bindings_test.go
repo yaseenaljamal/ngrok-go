@@ -26,11 +26,24 @@ func testBindings[T tunnelConfigPrivate, O any, OT any](
 			},
 		},
 		{
-			name: "with bindings",
+			name: "with bindings string",
 			opts: optsFunc(WithBindings("public")),
 			expectOpts: func(t *testing.T, opts *O) {
 				actual := getBindings(opts)
-				// require.NotEmpty(t, actual)
+				require.NotNil(t, actual)
+				require.NotEmpty(t, actual)
+				require.Len(t, actual, 1)
+				require.Equal(t, []string{"public"}, actual)
+			},
+		},
+		{
+			name: "with bindings spread slice",
+			opts: optsFunc(WithBindings([]string{"public"}...)),
+			expectOpts: func(t *testing.T, opts *O) {
+				actual := getBindings(opts)
+				require.NotNil(t, actual)
+				require.NotEmpty(t, actual)
+				require.Len(t, actual, 1)
 				require.Equal(t, []string{"public"}, actual)
 			},
 		},
