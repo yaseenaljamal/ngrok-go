@@ -91,6 +91,7 @@ func (cfg *httpOptions) toProtoConfig() *proto.HTTPEndpoint {
 		Domain:    cfg.Domain,
 		Hostname:  cfg.Hostname,
 		Subdomain: cfg.Subdomain,
+		Bindings:  cfg.Bindings,
 	}
 
 	if cfg.Compression {

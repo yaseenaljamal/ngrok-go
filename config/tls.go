@@ -66,6 +66,7 @@ func (cfg *tlsOptions) toProtoConfig() *proto.TLSEndpoint {
 
 		Subdomain: cfg.Subdomain,
 		Hostname:  cfg.Hostname,
+		Bindings:  cfg.Bindings,
 	}
 
 	opts.IPRestriction = cfg.commonOpts.CIDRRestrictions.toProtoConfig()
