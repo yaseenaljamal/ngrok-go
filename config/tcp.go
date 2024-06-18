@@ -52,7 +52,6 @@ func (cfg *tcpOptions) toProtoConfig() *proto.TCPEndpoint {
 		IPRestriction: cfg.CIDRRestrictions.toProtoConfig(),
 		Policy:        cfg.Policy.toProtoConfig(),
 		ProxyProto:    proto.ProxyProto(cfg.commonOpts.ProxyProto),
-		Bindings:      cfg.Bindings,
 	}
 }
 

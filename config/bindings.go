@@ -9,6 +9,7 @@ func WithBindings(requestedBindings ...string) interface {
 	HTTPEndpointOption
 	TLSEndpointOption
 	TCPEndpointOption
+	LabeledTunnelOption
 } {
 	ret := bindings{}
 	for _, binding := range requestedBindings {
@@ -17,14 +18,18 @@ func WithBindings(requestedBindings ...string) interface {
 	return ret
 }
 
-func (b bindings) ApplyTLS(opts *tlsOptions) {
-	opts.Bindings = []string(b)
+func (b bindings) ApplyTLS(cfg *tlsOptions) {
+	cfg.Bindings = []string(b)
 }
 
-func (b bindings) ApplyTCP(opts *tcpOptions) {
-	opts.Bindings = []string(b)
+func (b bindings) ApplyTCP(cfg *tcpOptions) {
+	cfg.Bindings = []string(b)
 }
 
-func (b bindings) ApplyHTTP(opts *httpOptions) {
-	opts.Bindings = []string(b)
+func (b bindings) ApplyHTTP(cfg *httpOptions) {
+	cfg.Bindings = []string(b)
+}
+
+func (b bindings) ApplyLabeled(cfg *labeledOptions) {
+	cfg.Bindings = []string(b)
 }
