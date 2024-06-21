@@ -67,6 +67,7 @@ func (cfg *labeledOptions) WithForwardsTo(url *url.URL) {
 func (cfg labeledOptions) Extra() proto.BindExtra {
 	return proto.BindExtra{
 		Metadata: cfg.Metadata,
+		Bindings: cfg.Bindings, // XXX: labeled tunnels probably don't support bindings ?
 	}
 }
 
